@@ -1,0 +1,96 @@
+<!doctype html>
+<html>
+<head>
+    <meta charset="utf-8" />
+    <title>AI ReportsTeam Performance - Dashboard (React)</title>
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    <script src="https://unpkg.com/babel-standalone@6/babel.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+    body{font-family:Arial, Helvetica, sans-serif;margin:20px}
+    #root{max-width:1000px;margin:0 auto}
+    .card{padding:12px;border:1px solid #eee;border-radius:8px;margin-bottom:12px}
+    </style>
+</head>
+<body>
+    <div id="root"></div>
+
+    <script type="text/babel">
+    const {useState, useEffect} = React;
+
+    function MemberLoads({data}){
+        const labels = data.map(d=>d.name+' ('+d.utilization_pct+'%)');
+        const values = data.map(d=>d.utilization_pct);
+        useEffect(()=>{
+        const ctx = document.getElementById('memberChart').getContext('2d');
+        if(window.memberChart) window.memberChart.destroy();
+        window.memberChart = new Chart(ctx,{
+            type:'bar',
+            data:{labels, datasets:[{label:'Utilization %', data:values, backgroundColor:'rgba(54,162,235,0.6)'}]},
+            options:{responsive:true}
+        });
+        }, [data]);
+        return (
+        <div className="card">
+            <h3>Member Loads</h3>
+            <canvas id="memberChart" width="800" height="250"></canvas>
+            <table style={{width:'100%',marginTop:8}}>
+            <thead><tr><th>Name</th><th>Weekly Est</th><th>Capacity</th><th>Util%</th><th>Status</th></tr></thead>
+            <tbody>{data.map(d=> (
+                <tr key={d.user_id}><td>{d.name}</td><td>{d.weekly_estimated_hours}</td><td>{d.capacity_hours_per_week}</td><td>{d.utilization_pct}%</td><td>{d.status}</td></tr>
+            ))}</tbody>
+            </table>
+        </div>
+        )
+    }
+
+    function LeadSources({data}){
+        const labels = data.map(d=>d.source);
+        const values = data.map(d=>d.conversions);
+        useEffect(()=>{
+        const ctx = document.getElementById('leadChart').getContext('2d');
+        if(window.leadChart) window.leadChart.destroy();
+        window.leadChart = new Chart(ctx,{type:'pie',data:{labels, datasets:[{data:values, backgroundColor:['#4e79a7','#f28e2b','#e15759','#76b7b2','#59a14f']}]}});
+        }, [data]);
+        return (
+        <div className="card">
+            <h3>Lead Sources</h3>
+            <canvas id="leadChart" width="400" height="200"></canvas>
+        </div>
+        )
+    }
+
+    function App(){
+        const [insights, setInsights] = useState(null);
+        const [loading, setLoading] = useState(false);
+        useEffect(()=>{ load() }, []);
+        async function load(){
+        setLoading(true);
+        try{
+            const res = await fetch('/api/insights');
+            if(!res.ok) throw new Error('API not running');
+            const j = await res.json();
+            setInsights(j);
+        }catch(e){
+            setInsights({error:e.message});
+        }finally{setLoading(false)}
+        }
+        if(!insights) return <div>Loading... {loading? '':' (starting)'}</div>
+        if(insights.error) return <div style={{color:'red'}}>Error: {insights.error}</div>
+        return (
+        <div>
+            <h1>AI ReportsTeam Performance</h1>
+            <div style={{marginBottom:12}}><button onClick={load}>Refresh</button></div>
+            <MemberLoads data={insights.member_loads || []} />
+            <LeadSources data={insights.lead_source_rank || []} />
+            <div className="card"><h3>Raw Insights</h3><pre style={{whiteSpace:'pre-wrap'}}>{JSON.stringify(insights, null, 2)}</pre></div>
+        </div>
+        )
+    }
+
+    ReactDOM.createRoot(document.getElementById('root')).render(<App />)
+    </script>
+</body>
+</html>
